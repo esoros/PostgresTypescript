@@ -1,90 +1,62 @@
 import {Client, DataType} from "ts-postgres"
+import { PostgresFactory } from "./PostgresFactory"
+import randomstring from "randomstring"
 
-let databaseName = "letstrythis1221"
-async function insert() {
-    let email = "esoros@gmail.com"
-    let client = new Client({
-        host: "localhost",
-        port: 5432,
-        user: "dbuser3",
-        password: "password",
-        database: databaseName
-    })
-    await client.connect()
+const databaseName = "hellvvojwosdsss000"
+const createUserTableQuery = `
+    CREATE TABLE users(
+        email varchar(256) NOT NULL PRIMARY KEY
+    );
+`
+const postgresFactory = new PostgresFactory(databaseName, [createUserTableQuery])
+
+async function test(client: Client) {
+    let email = randomEmail()
+    await insert(client, email)
+    await query(client)
+    await queryEmail(client, email)
+}
+
+function randomEmail() {
+    let str = randomstring.generate(10)
+    return `${str}@gmail.com`
+}
+
+async function insert(client: Client, email: string) {
     let res = await client.query("insert into users(email) VALUES($1)", [email], [DataType.Varchar])
-    console.log("user inserted", res)
-    await client.end()
+    console.log("user inserted", res, email)
+    return client
 }
 
-async function queryEmail(email: string) {
-    let client = new Client({
-        host: "localhost",
-        port: 5432,
-        user: "dbuser3",
-        password: "password",
-        database: databaseName
-    })
-    await client.connect()
-    let res = await client.query("select * from users where email = $1", [email], [DataType.Varchar])
-    console.log("res", res.rows[0][0]?.valueOf())
-    await client.end()
+async function queryEmail(client: Client, email: string) {
+    let res = await client.query(`select * from users where email = '${email}'`)
+    console.log("query email", res.rows, email)
+    return client
 }
 
-async function query() {
-   let client = new Client({
-        host: "localhost",
-        port: 5432,
-        user: "dbuser3",
-        password: "password",
-        database: databaseName
-    })
-    await client.connect()
+async function query(client: Client) {
     let res = await client.query("select * from users")
-    console.log("res", res.rows[0][0]?.valueOf())
-    await client.end()
+    console.log("query all users", res.rows)
 }
 
-export async function create() {
-    let client = new Client({
-        host: "localhost",
-        port: 5432,
-        user: "dbuser3",
-        password: "password"
-    })
-    await client.connect()
-    await client.query("CREATE DATABASE " + databaseName)
-    await client.end()
-
-    const createUserQuery = "CREATE TABLE users(email varchar(256) NOT NULL PRIMARY KEY);"
-    client = new Client({
-        host: "localhost",
-        port: 5432,
-        user: "dbuser3",
-        password: "password",
-        database: databaseName
-    })
-    await client.connect()
-    let res = await client.query(createUserQuery)
-    await client.end()
-    console.log("database created and seeded", res)
-}
-
-function endSuccess() {
+async function success() {
+    console.log("finished running tests")
     process.exit(0)
 }
 
-function endError(err : any) {
-    console.error("unhandled exception: ", err)
+async function exit(err : any) {
+    console.log("unable to finish tests...", err)
     process.exit(1)
 }
 
-try {
-    create()
-        .then(insert)
-        .then(query)
-        .then(() => queryEmail("esoros@gmail.com"))
-        .then(endSuccess)
-        .catch(endError)
-} catch (err) {
-    console.error("unable to seed database: ", err)
+async function main() {
+    try {
+        let client = await postgresFactory.createClient()
+        test(client).then(success).catch(exit)
+    } catch (err) {
+        console.error("unable to seed database: ", err)
+    }
 }
+
+main()
+
